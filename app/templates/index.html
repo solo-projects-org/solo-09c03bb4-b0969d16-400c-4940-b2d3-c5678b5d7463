@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>景区接驳车等待核查</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">景区接驳车等待核查</a>
+  <span class="rule">判定：等待超过 {{ threshold }} 分钟的人数是否多于 {{ limit }} 人</span>
+</header>
+<main>
+  {% if message %}
+    <div class="flash {{ 'error' if level == 'error' else 'ok' }}">{{ message }}</div>
+  {% endif %}
+
+  <section class="card">
+    <h2>导入闸机 CSV</h2>
+    <p class="hint">
+      每行三列：分钟号、入队人数、登车人数。单场至多 120 分钟，分钟号需连续；
+      开场与散场队列必须为空，期间无人离队。配不齐的表整张退回。
+    </p>
+    <form method="post" action="/sessions" enctype="multipart/form-data" class="inline-form">
+      <input type="file" name="file" accept=".csv,text/csv" required>
+      <button type="submit">导入并核算</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>已提交场次</h2>
+    {% if items %}
+    <table class="list">
+      <thead>
+        <tr>
+          <th>场次</th><th>文件</th><th>分钟范围</th><th>乘客数</th>
+          <th>超时人数下界</th><th>超时人数上界</th><th>结论</th><th>版本</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in items %}
+        <tr>
+          <td><a href="/sessions/{{ item.session.id }}">#{{ item.session.id }}</a></td>
+          <td>{{ item.session.filename }}</td>
+          <td>{{ item.session.minute_base }}–{{ item.session.last_minute }}</td>
+          <td>{{ item.session.total_passengers }}</td>
+          <td>{{ item.result.lower }}</td>
+          <td>{{ item.result.upper }}</td>
+          <td><span class="badge {{ item.result.status }}">{{ item.result.status_label }}</span></td>
+          <td>{{ item.result.version }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="hint">还没有场次，请先导入 CSV。</p>
+    {% endif %}
+  </section>
+</main>
+</body>
+</html>

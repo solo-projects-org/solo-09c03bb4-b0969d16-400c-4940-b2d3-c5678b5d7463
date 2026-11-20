@@ -1,0 +1,15 @@
+services:
+  bus-wait-check:
+    build: .
+    image: scenic-bus-wait-check:latest
+    container_name: scenic-bus-wait-check
+    ports:
+      - "8000:8000"
+    environment:
+      DB_PATH: /data/app.db
+    volumes:
+      - bus-wait-data:/data
+    restart: unless-stopped
+
+volumes:
+  bus-wait-data:

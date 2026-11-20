@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>场次 #{{ session.id }} · 景区接驳车等待核查</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">景区接驳车等待核查</a>
+  <span class="rule">判定：等待超过 {{ session.threshold }} 分钟的人数是否多于 {{ session.limit_count }} 人</span>
+</header>
+<main>
+  {% if message %}
+    <div class="flash {{ 'error' if level == 'error' else 'ok' }}">{{ message }}</div>
+  {% endif %}
+
+  <section class="card summary">
+    <div class="summary-head">
+      <h2>场次 #{{ session.id }} · {{ session.filename }}</h2>
+      <span class="badge {{ result.status }}">{{ result.status_label }}</span>
+    </div>
+    <p class="hint">
+      分钟号 {{ session.minute_base }}–{{ session.last_minute }}，共 {{ session.duration }} 分钟，
+      {{ session.total_passengers }} 名乘客；结论版本 v{{ result.version }}，
+      更新于 {{ result.updated_at }}。
+    </p>
+    <div class="metrics">
+      <div class="metric">
+        <span class="metric-label">超时人数下界</span>
+        <span class="metric-value">{{ result.lower }}</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">超时人数上界</span>
+        <span class="metric-value">{{ result.upper }}</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">凭证已锁定超时</span>
+        <span class="metric-value">{{ result.pinned_overdue }}</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">匿名乘客超时区间</span>
+        <span class="metric-value">{{ result.residual_lower }}–{{ result.residual_upper }}</span>
+      </div>
+    </div>
+    <p class="explain">{{ explanation }}</p>
+  </section>
+
+  <section class="card">
+    <h2>补录抽查凭证</h2>
+    <p class="hint">
+      按凭证号补录该批乘客的入队分钟、登车分钟和人数；各凭证对应不同乘客，
+      人数会从闸机总数中核销。新凭证与已采信凭证共同重算；同一凭证号内容相同只计一次，
+      内容不同报冲突。只有整场仍能配齐时才会同时保存凭证和重算结果。
+    </p>
+    <form method="post" action="/sessions/{{ session.id }}/credentials" class="inline-form">
+      <label>凭证号 <input type="text" name="credential_no" maxlength="100" required></label>
+      <label>入队分钟 <input type="number" name="join_minute" min="{{ session.minute_base }}" max="{{ session.last_minute }}" required></label>
+      <label>登车分钟 <input type="number" name="board_minute" min="{{ session.minute_base }}" max="{{ session.last_minute }}" required></label>
+      <label>人数 <input type="number" name="count" min="1" value="1" required></label>
+      <button type="submit">提交凭证并重算</button>
+    </form>
+
+    {% if credentials %}
+    <table class="list">
+      <thead>
+        <tr><th>凭证号</th><th>入队分钟</th><th>登车分钟</th><th>等待</th><th>人数</th><th>是否超时</th></tr>
+      </thead>
+      <tbody>
+      {% for c in credentials %}
+        <tr>
+          <td>{{ c.credential_no }}</td>
+          <td>{{ c.join_minute }}</td>
+          <td>{{ c.board_minute }}</td>
+          <td>{{ c.wait_minutes }} 分钟</td>
+          <td>{{ c.count }}</td>
+          <td>{% if c.is_overdue(session.threshold) %}超时{% else %}未超时{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="hint">已采信 {{ credentials|length }} 个凭证，覆盖 {{ credential_passengers }} 人，其中确定超时 {{ overdue_credentials }} 人。</p>
+    {% else %}
+      <p class="hint">暂无已采信凭证。</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>闸机分钟明细</h2>
+    <table class="list compact">
+      <thead>
+        <tr><th>分钟号</th><th>入队人数</th><th>登车人数</th><th>分钟末排队人数</th></tr>
+      </thead>
+      <tbody>
+      {% for m in minutes %}
+        <tr>
+          <td>{{ m.minute }}</td>
+          <td>{{ m.joins }}</td>
+          <td>{{ m.boards }}</td>
+          <td>{{ m.queue }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>
