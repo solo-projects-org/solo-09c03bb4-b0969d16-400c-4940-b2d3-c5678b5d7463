@@ -23,9 +23,21 @@
     </div>
     <p class="hint">
       分钟号 {{ session.minute_base }}–{{ session.last_minute }}，共 {{ session.duration }} 分钟，
-      {{ session.total_passengers }} 名乘客；结论版本 v{{ result.version }}，
+      {{ session.total_passengers }} 名乘客；来源：{{ session.source_label }}；结论版本 v{{ result.version }}，
       更新于 {{ result.updated_at }}。
     </p>
+    <p class="hint">
+      {% if session.verified_at %}
+      已人工核对（{{ session.verified_at }}），本场可用作读头方向对照。
+      {% else %}
+      尚未人工核对；核对后才可用作读头方向对照。
+      {% endif %}
+    </p>
+    {% if not session.verified_at %}
+    <form method="post" action="/sessions/{{ session.id }}/verify" class="inline-form">
+      <button type="submit">标记为已人工核对</button>
+    </form>
+    {% endif %}
     <div class="metrics">
       <div class="metric">
         <span class="metric-label">超时人数下界</span>

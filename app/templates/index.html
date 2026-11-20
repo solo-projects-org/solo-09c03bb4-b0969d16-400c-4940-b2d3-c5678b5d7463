@@ -17,7 +17,7 @@
   {% endif %}
 
   <section class="card">
-    <h2>导入闸机 CSV</h2>
+    <h2>导入闸机 CSV（按方向计数）</h2>
     <p class="hint">
       每行三列：分钟号、入队人数、登车人数。单场至多 120 分钟，分钟号需连续；
       开场与散场队列必须为空，期间无人离队。配不齐的表整张退回。
@@ -29,13 +29,61 @@
   </section>
 
   <section class="card">
+    <h2>读头方向对照（新闸机）</h2>
+    {% if calibration %}
+    <p class="hint">
+      现行对照 #{{ calibration.id }}：来源场次
+      <a href="/sessions/{{ calibration.session_id }}">#{{ calibration.session_id }}</a>
+      （{{ calibration.filename }}），读头 {{ calibration.readers|join('、') }}
+      共 {{ calibration.readers|length }} 个，可行分法 {{ calibration.assignments|length }} 种，
+      建立于 {{ calibration.created_at }}。
+    </p>
+    {% else %}
+    <p class="hint">尚未建立对照。新闸机读头表须先建立对照才能换算导入。</p>
+    {% endif %}
+    <p class="hint">
+      选一场已导入且经人工核对的场次，上传该场的读头表（分钟号、读头号、人数）作为对照。
+      每个读头方向固定，所有可行分法都须逐分钟还原该场次的入队和登车人数；
+      新对照无解就退回，原对照继续生效。
+    </p>
+    {% if verified_sessions %}
+    <form method="post" action="/calibrations" enctype="multipart/form-data" class="inline-form">
+      <label>对照场次
+        <select name="session_id" required>
+          {% for s in verified_sessions %}
+          <option value="{{ s.id }}">#{{ s.id }} · {{ s.filename }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <input type="file" name="file" accept=".csv,text/csv" required>
+      <button type="submit">上传对照读头表</button>
+    </form>
+    {% else %}
+    <p class="hint">还没有经人工核对的场次，请先在场次页点“标记为已人工核对”。</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>导入读头 CSV（新闸机）</h2>
+    <p class="hint">
+      每行三列：分钟号、读头号、人数；同一套读头至多 12 个，缺行按 0 人计。
+      读头须在现行对照中出现过；只有各可行分法换算出的分钟表完全相同、且整场能配齐，
+      才生成可导入的预览，确认时按落库当时的现行对照复核。
+    </p>
+    <form method="post" action="/imports/preview" enctype="multipart/form-data" class="inline-form">
+      <input type="file" name="file" accept=".csv,text/csv" required>
+      <button type="submit">换算并预览</button>
+    </form>
+  </section>
+
+  <section class="card">
     <h2>已提交场次</h2>
     {% if items %}
     <table class="list">
       <thead>
         <tr>
-          <th>场次</th><th>文件</th><th>分钟范围</th><th>乘客数</th>
-          <th>超时人数下界</th><th>超时人数上界</th><th>结论</th><th>版本</th>
+          <th>场次</th><th>文件</th><th>来源</th><th>分钟范围</th><th>乘客数</th>
+          <th>超时人数下界</th><th>超时人数上界</th><th>结论</th><th>人工核对</th><th>版本</th>
         </tr>
       </thead>
       <tbody>
@@ -43,11 +91,13 @@
         <tr>
           <td><a href="/sessions/{{ item.session.id }}">#{{ item.session.id }}</a></td>
           <td>{{ item.session.filename }}</td>
+          <td>{{ item.session.source_label }}</td>
           <td>{{ item.session.minute_base }}–{{ item.session.last_minute }}</td>
           <td>{{ item.session.total_passengers }}</td>
           <td>{{ item.result.lower }}</td>
           <td>{{ item.result.upper }}</td>
           <td><span class="badge {{ item.result.status }}">{{ item.result.status_label }}</span></td>
+          <td>{% if item.session.verified_at %}已核对{% else %}未核对{% endif %}</td>
           <td>{{ item.result.version }}</td>
         </tr>
       {% endfor %}

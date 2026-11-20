@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>导入预览 #{{ preview.id }} · 景区接驳车等待核查</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">景区接驳车等待核查</a>
+  <span class="rule">读头表导入预览</span>
+</header>
+<main>
+  {% if message %}
+    <div class="flash {{ 'error' if level == 'error' else 'ok' }}">{{ message }}</div>
+  {% endif %}
+
+  <section class="card summary">
+    <div class="summary-head">
+      <h2>导入预览 #{{ preview.id }} · {{ preview.filename }}</h2>
+      {% if preview.session_id %}
+      <span class="badge meets">已建场</span>
+      {% else %}
+      <span class="badge review">待确认</span>
+      {% endif %}
+    </div>
+    <p class="hint">
+      分钟号 {{ preview.minute_base }}–{{ preview.last_minute }}，共 {{ preview.duration }} 分钟，
+      {{ preview.total_passengers }} 名乘客；读头 {{ preview.readers|join('、') }}；
+      依据对照 #{{ preview.calibration_id }} 换算，各可行分法得到的分钟表完全相同，
+      整场可以配齐。生成于 {{ preview.created_at }}。
+    </p>
+    {% if preview.session_id %}
+    <p class="explain">
+      该预览已建场：<a href="/sessions/{{ preview.session_id }}">场次 #{{ preview.session_id }}</a>
+      （{{ preview.confirmed_at }}）；再次确认仍返回原场次，不会重复建场。
+    </p>
+    {% else %}
+    <form method="post" action="/imports/{{ preview.id }}/confirm" class="inline-form">
+      <button type="submit">确认建场</button>
+    </form>
+    <p class="hint">
+      确认时按落库当时的现行对照复核：仍能唯一得出本预览的分钟表才建场；
+      对照已变化导致复核不通过时不建场，需重新上传读头表生成预览。
+    </p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>换算后的分钟表</h2>
+    <table class="list compact">
+      <thead>
+        <tr><th>分钟号</th><th>入队人数</th><th>登车人数</th><th>分钟末排队人数</th></tr>
+      </thead>
+      <tbody>
+      {% for m in minutes %}
+        <tr>
+          <td>{{ m.minute }}</td>
+          <td>{{ m.joins }}</td>
+          <td>{{ m.boards }}</td>
+          <td>{{ m.queue }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

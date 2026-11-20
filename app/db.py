@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     total_passengers INTEGER NOT NULL,
     threshold INTEGER NOT NULL,
     limit_count INTEGER NOT NULL,
+    source TEXT NOT NULL DEFAULT 'csv',
+    verified_at TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -55,7 +57,49 @@ CREATE TABLE IF NOT EXISTS credentials (
 
 CREATE INDEX IF NOT EXISTS idx_credentials_session
     ON credentials (session_id, id);
+
+-- 读头方向对照：最新一行即现行对照；新对照无解时不写入，原对照继续生效。
+CREATE TABLE IF NOT EXISTS calibrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    minute_base INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    readers_json TEXT NOT NULL,
+    assignments_json TEXT NOT NULL,
+    counts_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+-- 读头表导入预览：确认时按落库当时的现行对照复核，通过才建场。
+CREATE TABLE IF NOT EXISTS import_previews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename TEXT NOT NULL,
+    minute_base INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    readers_json TEXT NOT NULL,
+    counts_json TEXT NOT NULL,
+    joins_json TEXT NOT NULL,
+    boards_json TEXT NOT NULL,
+    calibration_id INTEGER NOT NULL REFERENCES calibrations(id) ON DELETE CASCADE,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL,
+    confirmed_at TEXT
+);
 """
+
+# 老库升级：sessions 增加来源与人工核对列。
+_SESSION_COLUMNS = {
+    "source": "ALTER TABLE sessions ADD COLUMN source TEXT NOT NULL DEFAULT 'csv'",
+    "verified_at": "ALTER TABLE sessions ADD COLUMN verified_at TEXT",
+}
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(sessions)")}
+    for column, statement in _SESSION_COLUMNS.items():
+        if column not in existing:
+            conn.execute(statement)
 
 
 def resolve_db_path(path: str | os.PathLike[str] | None = None) -> str:
@@ -81,5 +125,6 @@ def init_db(path: str | os.PathLike[str] | None = None) -> None:
         if resolve_db_path(path) != ":memory:":
             conn.execute("PRAGMA journal_mode = WAL")
         conn.executescript(SCHEMA)
+        _migrate(conn)
     finally:
         conn.close()
